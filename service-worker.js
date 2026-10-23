@@ -1,5 +1,5 @@
 // Service worker Nota KQ5 — naikkan VERSION setiap ada perubahan berkas.
-const VERSION = 'v1.7.1';
+const VERSION = 'v1.8.0';
 const CACHE = `nota234-${VERSION}`;
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './css/style.css',
   './js/app.js', './js/db.js', './js/calc.js', './js/util.js', './js/pdf-lite.js', './js/nota.js', './js/nota-pdf.js', './js/nota-ui.js', './js/nota-image.js',

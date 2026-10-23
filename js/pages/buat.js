@@ -21,7 +21,7 @@ export default async function draw(el) {
     <div class="sub">Subtotal: <span class="i-sub">Rp 0</span></div></div></div>`;
 
   // Opsi lanjutan disembunyikan; terbuka otomatis bila sedang edit/duplikat dengan isi yang tidak standar.
-  const advOpen = !!(edit || dupId) && !!(p.locTime || p.address || p.discountValue || p.taxRate || p.dp || p.paid || p.note || p.date !== todayStr());
+  const advOpen = !!(edit || dupId) && !!(p.locTime || p.address || p.discountValue || p.taxRate || p.dp || p.note || p.date !== todayStr());
   el.innerHTML = `<div class="page-head">${edit ? '<a class="icon-btn" href="#/riwayat" aria-label="Kembali">‹</a>' : ''}<h1>${edit ? 'Edit ' + esc(edit.no) : 'Buat Nota'}</h1></div>
     <form id="f" novalidate>
       <div class="two"><label class="field"><span>Nama pelanggan *</span><input type="text" name="customerName" list="dl-cust" maxlength="80" required value="${esc(p.customerName)}" autocomplete="off"></label>
@@ -30,6 +30,9 @@ export default async function draw(el) {
       <datalist id="dl-menu">${menu.map((m) => `<option value="${esc(m.name)}">${rupiah(m.price)}</option>`).join('')}</datalist>
       <div class="field"><span>Menu *</span><div id="items">${p.items.map(rowHTML).join('')}</div><button class="btn block" type="button" id="add-item">+ Tambah menu</button></div>
       <div class="total-line"><span>Total</span><span id="total">Rp 0</span></div>
+      <div class="field"><span>Status pembayaran</span><div class="chips" id="paidseg" style="margin:0">
+        <button type="button" class="chip ${p.paid ? '' : 'on'}" data-paid="0" aria-pressed="${p.paid ? 'false' : 'true'}">Belum lunas</button><button type="button" class="chip ${p.paid ? 'on' : ''}" data-paid="1" aria-pressed="${p.paid ? 'true' : 'false'}">Lunas</button></div>
+        <input type="hidden" name="paid" value="${p.paid ? 1 : 0}"></div>
       <details class="adv" ${advOpen ? 'open' : ''}><summary>Opsi lainnya: tanggal, jam, alamat, diskon, pajak, DP, catatan</summary>
         <div class="two"><label class="field"><span>Tanggal</span><input type="date" name="date" required value="${esc(p.date)}"></label>
         <label class="field"><span>Jam di lokasi</span><input type="time" name="locTime" value="${esc(p.locTime)}"></label></div>
@@ -40,7 +43,6 @@ export default async function draw(el) {
           <div class="two"><label class="field"><span>DP (Rp)</span><input type="number" name="dp" inputmode="numeric" min="0" value="${p.dp || ''}" placeholder="0"></label><span></span></div>
           <div class="sumrow"><span>Subtotal</span><span id="r-sub">Rp 0</span></div><div class="sumrow"><span>Diskon</span><span id="r-disc">Rp 0</span></div><div class="sumrow"><span>Pajak</span><span id="r-tax">Rp 0</span></div>
           <div class="sumrow"><span>DP</span><span id="r-dp">Rp 0</span></div><div class="sumrow strong"><span>Sisa tagihan</span><span id="r-rem">Rp 0</span></div></div>
-        <label class="row field" style="gap:10px"><input type="checkbox" name="paid" ${p.paid ? 'checked' : ''} style="width:22px;height:22px"><span style="margin:0">Sudah lunas</span></label>
         <label class="field"><span>Catatan</span><textarea name="note" maxlength="300">${esc(p.note)}</textarea></label>
       </details>
       <button class="btn primary block" type="submit" data-after="img">${edit ? 'Simpan & Kirim ke Pelanggan' : 'Buat & Kirim ke Pelanggan'}</button>
@@ -57,6 +59,12 @@ export default async function draw(el) {
     set('#r-sub', rupiah(b.subtotal)); set('#r-disc', '-' + rupiah(b.discount)); set('#r-tax', rupiah(b.tax)); set('#total', rupiah(b.total)); set('#r-dp', '-' + rupiah(b.dp)); set('#r-rem', rupiah(Math.max(0, b.remaining)));
   }
   el.onclick = (e) => {
+    const seg = e.target.closest('[data-paid]');
+    if (seg) {
+      form.paid.value = seg.dataset.paid;
+      el.querySelectorAll('[data-paid]').forEach((b) => { const on = b === seg; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      return;
+    }
     if (e.target.id === 'add-item') { itemsEl.insertAdjacentHTML('beforeend', rowHTML({ name: '', qty: 1, price: '' })); itemsEl.lastElementChild.querySelector('.i-name').focus(); }
     if (e.target.closest('[data-rm]')) { if (itemsEl.children.length > 1) e.target.closest('.item-row').remove(); else toast('Minimal satu menu', 'err'); recalc(); }
   };
@@ -98,7 +106,7 @@ export default async function draw(el) {
     const bd = orderBreakdown(subtotal, { discountType: d.discountType, discountValue: dv, taxRate: tr, dp: dpv });
     if (bd.dp > bd.total) return toast('DP melebihi total', 'err');
     const nota = { id: edit?.id || db.uid(), no: edit?.no || notaNo(await db.nextCounter()), customerName: d.customerName, phone: d.phone, date: d.date, locTime: d.locTime || '', address: d.address || '',
-      items, subtotal, discountType: d.discountType, discountValue: dv, discount: bd.discount, taxRate: tr, tax: bd.tax, total: bd.total, dp: bd.dp, paid: !!d.paid, note: d.note,
+      items, subtotal, discountType: d.discountType, discountValue: dv, discount: bd.discount, taxRate: tr, tax: bd.tax, total: bd.total, dp: bd.dp, paid: d.paid === '1', note: d.note,
       createdAt: edit?.createdAt || Date.now(), updatedAt: Date.now() };
     try { await db.put('notas', nota); } catch (err) { return toast('Gagal menyimpan: ' + (err.message || err), 'err'); }
     toast(edit ? 'Nota diperbarui' : `Nota ${nota.no} tersimpan`);
